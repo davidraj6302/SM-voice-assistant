@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from "react";
+// import React, { useState, useEffect } from "react";
+
 import "./App.css";
 
 const SpeechRecognition =
   window.SpeechRecognition || window.webkitSpeechRecognition;
-const recognition = new SpeechRecognition();
-recognition.continuous = true;
-recognition.lang = "en-US";
 
 function App() {
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
+  const [recognition, setRecognition] = useState(null);
+  const [userInput, setUserInput] = useState("");
 
   const speak = (text) => {
     const utterance = new SpeechSynthesisUtterance(text);
@@ -24,17 +24,38 @@ function App() {
       "Disclaimer: This voice assistant is designed only for opening social media apps.";
     setResponse(disclaimer);
     speak(disclaimer);
+
+    if (SpeechRecognition) {
+      const recog = new SpeechRecognition();
+      recog.continuous = true;
+      recog.lang = "en-US";
+      setRecognition(recog);
+
+      recog.onresult = (event) => {
+        const result = event.results[event.resultIndex][0].transcript.trim();
+        setTranscript(result);
+        handleCommand(result);
+      };
+
+      recog.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+      };
+    }
   }, []);
 
   const startListening = () => {
-    setTranscript("");
-    setListening(true);
-    recognition.start();
+    if (recognition) {
+      setTranscript("");
+      setListening(true);
+      recognition.start();
+    }
   };
 
   const stopListening = () => {
-    setListening(false);
-    recognition.stop();
+    if (recognition) {
+      setListening(false);
+      recognition.stop();
+    }
   };
 
   const handleCommand = (text) => {
@@ -46,7 +67,7 @@ function App() {
       setResponse(res);
       speak(res);
       window.open(url, "_blank");
-      stopListening(); // stop after action
+      stopListening();
     };
 
     if (command.includes("open google")) {
@@ -81,14 +102,12 @@ function App() {
     }
   };
 
-  recognition.onresult = (event) => {
-    const result = event.results[event.resultIndex][0].transcript.trim();
-    setTranscript(result);
-    handleCommand(result);
-  };
-
-  recognition.onerror = (event) => {
-    console.error("Speech recognition error:", event.error);
+  const handleTextSubmit = () => {
+    if (userInput.trim() !== "") {
+      setTranscript(userInput);
+      handleCommand(userInput);
+      setUserInput("");
+    }
   };
 
   return (
@@ -96,16 +115,30 @@ function App() {
       <h1>🎙️ Social Media Voice Opener</h1>
       <p>Say commands like "open Instagram" or "open YouTube".</p>
 
-      <button onClick={startListening} disabled={listening}>
-        🎤 Start Listening
-      </button>
-      <button onClick={stopListening} disabled={!listening}>
-        ⏹️ Stop Listening
-      </button>
+      {recognition ? (
+        <div>
+          <button onClick={startListening} disabled={listening}>
+            🎤 Start Listening
+          </button>
+          <button onClick={stopListening} disabled={!listening}>
+            ⏹️ Stop Listening
+          </button>
+        </div>
+      ) : (
+        <div>
+          <input
+            type="text"
+            value={userInput}
+            onChange={(e) => setUserInput(e.target.value)}
+            placeholder="Type your command..."
+          />
+          <button onClick={handleTextSubmit}>Submit</button>
+        </div>
+      )}
 
       <div className="transcript-box">
         <strong>You said:</strong>{" "}
-        {transcript || "Say a social media command..."}
+        {transcript || "Say or type a social media command..."}
       </div>
 
       <div className="response-box">
